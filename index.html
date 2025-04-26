@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red Destroyer</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+    margin: 0;
+    background-color: black;
+    font-family: 'Press Start 2P', cursive, sans-serif;
+    color: white;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+#start-screen {
+    text-align: center;
+    margin-top: 100px;
+}
+
+#start-btn {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 18px;
+    background-color: red;
+    border: none;
+    color: white;
+    cursor: pointer;
+}
+
+#start-btn:hover {
+    background-color: darkred;
+}
+
+#hud {
+    width: 800px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    visibility: hidden;
+}
+
+#pause-btn {
+    background-color: yellow;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: black;
+}
+
+#pause-btn:hover {
+    background-color: orange;
+}
+
+#score {
+    font-size: 18px;
+}
+
+#gameCanvas {
+    background-color: #111;
+    border: 3px solid white;
+    margin-top: 10px;
+}
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1>Red Destroyer</h1>
+    <button id="start-btn">Start Game</button>
+</div>
+
+<div>
+    <p>Move with Arrow Keys ⬅️ ➡️ and shoot with Spacebar ⬆️
+
+    Destroy red objects before they hit you or stay alive for 5 seconds!</p></div>
+
+<div id="hud">
+    <button id="pause-btn">Pause</button>
+    <div id="score">Score: 0</div>
+</div>
+
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startScreen = document.getElementById('start-screen');
+    const startBtn = document.getElementById('start-btn');
+    const hud = document.getElementById('hud');
+    const scoreDisplay = document.getElementById('score');
+    const pauseBtn = document.getElementById('pause-btn');
+    
+    let shooter, bullets = [], enemies = [];
+    let keys = {};
+    let score = 0;
+    let isRunning = false;
+    let isPaused = false;
+    let lastEnemyTime = 0;
+    
+    class Shooter {
+        constructor() {
+            this.width = 40;
+            this.height = 40;
+            this.x = canvas.width / 2 - this.width / 2;
+            this.y = canvas.height - this.height - 10;
+            this.speed = 5;
+        }
+    
+        draw() {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    
+        update() {
+            if (keys['ArrowLeft'] && this.x > 0) this.x -= this.speed;
+            if (keys['ArrowRight'] && this.x + this.width < canvas.width) this.x += this.speed;
+        }
+    }
+    
+    class Bullet {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.width = 5;
+            this.height = 10;
+            this.speed = 7;
+        }
+    
+        draw() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    
+        update() {
+            this.y -= this.speed;
+        }
+    }
+    
+    class Enemy {
+        constructor() {
+            this.width = 30;
+            this.height = 30;
+            this.x = Math.random() * (canvas.width - this.width);
+            this.y = 0;
+            this.speed = 2;
+            this.spawnTime = Date.now();
+        }
+    
+        draw() {
+            ctx.fillStyle = 'red';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    
+        update() {
+            this.y += this.speed;
+        }
+    }
+    
+    function startGame() {
+        shooter = new Shooter();
+        bullets = [];
+        enemies = [];
+        score = 0;
+        isRunning = true;
+        isPaused = false;
+        hud.style.visibility = 'visible';
+        startScreen.style.display = 'none';
+        animate();
+    }
+    
+    function animate() {
+        if (!isRunning) return;
+        if (isPaused) {
+            requestAnimationFrame(animate);
+            return;
+        }
+    
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        shooter.update();
+        shooter.draw();
+    
+        bullets.forEach((bullet, index) => {
+            bullet.update();
+            bullet.draw();
+            if (bullet.y < 0) bullets.splice(index, 1);
+        });
+    
+        enemies.forEach((enemy, eIndex) => {
+            enemy.update();
+            enemy.draw();
+    
+            // Collision detection
+            bullets.forEach((bullet, bIndex) => {
+                if (bullet.x < enemy.x + enemy.width &&
+                    bullet.x + bullet.width > enemy.x &&
+                    bullet.y < enemy.y + enemy.height &&
+                    bullet.y + bullet.height > enemy.y) {
+                    enemies.splice(eIndex, 1);
+                    bullets.splice(bIndex, 1);
+                    score++;
+                    scoreDisplay.innerText = `Score: ${score}`;
+                }
+            });
+    
+            // If enemy touches shooter
+            if (enemy.x < shooter.x + shooter.width &&
+                enemy.x + enemy.width > shooter.x &&
+                enemy.y < shooter.y + shooter.height &&
+                enemy.y + enemy.height > shooter.y) {
+                endGame();
+            }
+    
+            // If enemy lives longer than 4 seconds
+            if (Date.now() - enemy.spawnTime > 4000) {
+                endGame();
+            }
+        });
+    
+        // Spawn enemies every 2 seconds
+        if (Date.now() - lastEnemyTime > 2000) {
+            enemies.push(new Enemy());
+            lastEnemyTime = Date.now();
+        }
+    
+        requestAnimationFrame(animate);
+    }
+    
+    function endGame() {
+        isRunning = false;
+        alert(`Game Over! Your Score: ${score}`);
+        document.location.reload();
+    }
+    
+    // Controls
+    window.addEventListener('keydown', (e) => {
+        keys[e.key] = true;
+        if (e.key === ' ' && isRunning && !isPaused) {
+            bullets.push(new Bullet(shooter.x + shooter.width / 2 - 2.5, shooter.y));
+        }
+    });
+    
+    window.addEventListener('keyup', (e) => {
+        keys[e.key] = false;
+    });
+    
+    // Buttons
+    startBtn.addEventListener('click', startGame);
+    
+    pauseBtn.addEventListener('click', () => {
+        isPaused = !isPaused;
+        pauseBtn.innerText = isPaused ? 'Resume' : 'Pause';
+    });
+    </script>
+</body>
+</html>
