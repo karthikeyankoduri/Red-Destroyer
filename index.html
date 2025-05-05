@@ -179,7 +179,7 @@
     constructor(x, y) {
       this.x = x;
       this.y = y;
-      this.width = 5;
+      this.width = 6;
       this.height = 10;
       this.speed = 7;
     }
@@ -196,8 +196,8 @@
 
   class Enemy {
     constructor() {
-      this.width = 30;
-      this.height = 30;
+      this.width = 40;
+      this.height = 40;
       this.x = Math.random() * (canvas.width - this.width);
       this.y = 0;
       this.speed = 3;
@@ -267,7 +267,7 @@
         endGame();
       }
 
-      if (Date.now() - enemy.spawnTime > 4000) {
+      if (Date.now() - enemy.spawnTime > 5500) {
         endGame();
       }
     });
